@@ -1,0 +1,131 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+            - localhost:9093
+            - 192.168.70.12:9093
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+  - "rules/*_rules.yml"
+  - "rules/*_alerts.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: "docker_node"
+    file_sd_configs:
+      - files:
+        - targets/nodes/*.json
+        refresh_interval: 5m
+    static_configs:
+      - targets: ['192.168.70.12:9100']
+#    params:
+#      collect[]:
+#        - cpu
+#        - meminfo
+#        - diskstats
+#        - netdev
+#        - netstat
+#        - filefd
+#        - filesystem
+#        - xfs
+#        - systemd
+  - job_name: "docker"
+    file_sd_configs:
+      - files:
+        - targets/docker/*.json
+        refresh_interval: 5m
+    static_configs:
+      - targets: ['192.168.70.12:8080']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: '(container_tasks_state|container_memory_failures_total)'
+        action: drop
+
+      - source_labels: [id]
+        regex: '/docker/([a-z0-9]+);'
+        replacement: '$1'
+        target_label: container_id
+    
+      - regex: 'kernelVersion'
+        action: labeldrop
+  - job_name: "alertmanager"
+    static_configs:
+    - targets: ['localhost:9093']
+
+  - job_name: 'http_probe'
+    metrics_path: /probe
+    params:
+      module: 
+      - http_2xx
+#    static_configs:
+#      - targets:
+#        - http://opennet.ru
+#        - https://opennet.ru
+    file_sd_configs:
+      - files:
+        - 'targets/probes/http_probes.json'
+        refresh_interval: 5m
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 192.168.70.13:9115
+    
+  - job_name: 'icmp_probe'
+    metrics_path: /probe
+    params:
+      module: 
+      - icmp_check
+      - dns_check
+    static_configs:
+      - targets:
+        - google.com
+        - yandex.ru
+#    file_sd_configs:
+#      - files:
+#        - 'targets/probes/http_probes.json'
+#        refresh_interval: 5m
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 192.168.70.13:9115
+    
+  - job_name: 'dns_probe'
+    metrics_path: /probe
+    params:
+      module: 
+      - dns_check
+    static_configs:
+      - targets:
+        - yandex.ru
+#    file_sd_configs:
+#      - files:
+#        - 'targets/probes/http_probes.json'
+#        refresh_interval: 5m
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 192.168.70.13:9115
+    
+  - job_name: pushgateway
+    honor_labels: true
+    file_sd_configs:
+    - files:
+      - targets/pushgateway/*.json
+      refresh_interval: 60s

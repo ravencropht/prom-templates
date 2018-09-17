@@ -1,0 +1,14 @@
+modules:
+  http_2xx:
+    prober: http
+    http:
+  icmp_check:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"
+  dns_yandex_check:
+    prober: dns
+    dns:
+      preferred_ip_protocol: "ip4"
+      query_name: "www.yandex.ru"
